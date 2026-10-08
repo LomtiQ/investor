@@ -1,0 +1,193 @@
+* { box-sizing: border-box; }
+body {
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: #f4f6f8;
+    margin: 0;
+    color: #222;
+}
+header {
+    padding: 20px 32px;
+    background: #fff;
+    border-bottom: 1px solid #e3e6ea;
+}
+header h1 { margin: 0; font-size: 22px; }
+
+.grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+        "capital  wallet"
+        "growth   growth"
+        "operation operation";
+    gap: 20px;
+    padding: 24px 32px;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+.widget-capital   { grid-area: capital; }
+.widget-wallet   { grid-area: wallet; }
+.widget-growth    { grid-area: growth; }
+.widget-operation { grid-area: operation; }
+
+.card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 20px 24px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+.card h2 {
+    margin: 0 0 16px;
+    font-size: 16px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: #666;
+}
+
+.capital-total {
+    font-size: 32px;
+    font-weight: 600;
+    margin-bottom: 16px;
+}
+
+.wallet-total {
+    font-size: 32px;
+    font-weight: 600;
+    margin-bottom: 16px;
+}
+
+.positions { width: 100%; border-collapse: collapse; }
+.positions th, .positions td {
+    text-align: left;
+    padding: 8px 4px;
+    border-bottom: 1px solid #eee;
+}
+.positions th { font-weight: 500; color: #888; font-size: 13px; }
+.positions .empty { text-align: center; color: #aaa; padding: 20px; }
+
+/* Форма */
+form {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px 20px;
+}
+form label {
+    display: flex;
+    flex-direction: column;
+    font-size: 13px;
+    color: #555;
+    gap: 4px;
+}
+form input, form select {
+    padding: 8px 10px;
+    border: 1px solid #ccd2d9;
+    border-radius: 6px;
+    font-size: 14px;
+}
+fieldset {
+    grid-column: 1 / -1;
+    border: 1px solid #e3e6ea;
+    border-radius: 8px;
+    padding: 14px 16px;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px 20px;
+}
+fieldset legend {
+    padding: 0 6px;
+    font-size: 13px;
+    color: #666;
+}
+button {
+    grid-column: 1 / -1;
+    padding: 12px;
+    background: #2b8a3e;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-size: 15px;
+    cursor: pointer;
+}
+button:hover { background: #237032; }
+
+@media (max-width: 900px) {
+    .grid {
+        grid-template-columns: 1fr;
+        grid-template-areas: "capital" "wallet" "growth" "operation";
+    }
+    form, fieldset { grid-template-columns: 1fr; }
+}
+
+/* Кнопки */
+.wallet-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 8px;
+}
+
+.btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background .15s;
+}
+.btn-primary {
+    background: #2b8a3e;
+    color: #fff;
+}
+.btn-primary:hover { background: #237032; }
+.btn-secondary {
+    background: #e9ecef;
+    color: #333;
+}
+.btn-secondary:hover { background: #dde2e6; }
+
+/* Модалка */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, .4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+.modal-overlay[hidden] { display: none; }
+
+.modal {
+    background: #fff;
+    border-radius: 12px;
+    padding: 24px;
+    width: 360px;
+    max-width: 90vw;
+    box-shadow: 0 10px 40px rgba(0,0,0,.2);
+}
+.modal h3 {
+    margin: 0 0 16px;
+    font-size: 18px;
+}
+.modal label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 13px;
+    color: #555;
+}
+.modal input {
+    padding: 8px 10px;
+    border: 1px solid #ccd2d9;
+    border-radius: 6px;
+    font-size: 14px;
+}
+.modal-error {
+    margin-top: 10px;
+    color: #c92a2a;
+    font-size: 13px;
+}
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+}

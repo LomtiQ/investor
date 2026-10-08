@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="UTF-8">
+  <title>Портфель облигаций</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+<header>
+  <h1>Мой портфель</h1>
+</header>
+
+<main class="grid">
+
+  <!-- ====== ВИДЖЕТ 1: КАПИТАЛ И ПОЗИЦИИ ====== -->
+  <section class="card widget-capital">
+    <h2>Капитал</h2>
+    <div class="capital-total">
+      <span id="capitalValue">—</span> ₽
+    </div>
+
+    <script>
+      document.addEventListener('DOMContentLoaded', async () => {
+          try {
+              const res = await fetch('/api/v1/wallet/get_value');
+              if (!res.ok) throw new Error('HTTP ' + res.status);
+              const data = await res.json();
+
+              const formatted = new Intl.NumberFormat('ru-RU', {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2
+              }).format(data.totalCapital).replace(',', '.');
+
+              document.getElementById('capitalValue').textContent = formatted;
+          } catch (e) {
+              console.error('Не удалось загрузить капитал:', e);
+              document.getElementById('capitalValue').textContent = '—';
+          }
+      });
+    </script>
+
+    <table class="positions">
+      <thead>
+      <tr>
+        <th>Бумага</th>
+        <th>Кол-во</th>
+        <th>Сумма</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>ОФЗ 26238</td>
+        <td>50</td>
+        <td>47 500.00</td>
+      </tr>
+      <tr>
+        <td>ОФЗ 26240</td>
+        <td>30</td>
+        <td>28 800.00</td>
+      </tr>
+      <tr>
+        <td>Корп. облигация X</td>
+        <td>100</td>
+        <td>76 040.00</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ====== ВИДЖЕТ 1: КАПИТАЛ И ПОЗИЦИИ ====== -->
+  <section class="card widget-wallet">
+    <h2>Кошелёк</h2>
+    <div class="wallet-total">
+      <span id="walletValue">—</span> ₽
+    </div>
+
+    <div class="wallet-actions">
+      <button type="button" id="btnDeposit" class="btn btn-primary">Внести</button>
+      <button type="button" id="btnWithdraw" class="btn btn-secondary">Снять</button>
+    </div>
+
+    <script>
+      document.addEventListener('DOMContentLoaded', () => {
+
+          // ====== элементы ======
+          const walletValueEl = document.getElementById('walletValue');
+          const btnDeposit    = document.getElementById('btnDeposit');
+          const btnWithdraw   = document.getElementById('btnWithdraw');
+          const modal         = document.getElementById('walletModal');
+          const modalTitle    = document.getElementById('modalTitle');
+          const modalAmount   = document.getElementById('modalAmount');
+          const modalError    = document.getElementById('modalError');
+          const modalCancel   = document.getElementById('modalCancel');
+          const modalSubmit   = document.getElementById('modalSubmit');
+
+          let currentAction = null; // 'deposit' | 'withdraw'
+
+          // ====== форматирование ======
+          function formatMoney(value) {
+              return new Intl.NumberFormat('ru-RU', {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2
+              }).format(value)
+                .replace(/\u00A0/g, ' ')
+                .replace(',', '.');
+          }
+
+          // ====== загрузка кошелька ======
+          async function loadWallet() {
+              try {
+                  const res = await fetch('/api/v1/wallet/get_value');
+                  if (!res.ok) throw new Error('HTTP ' + res.status);
+                  const data = await res.json();
+                  walletValueEl.textContent = formatMoney(data.totalValue);
+              } catch (e) {
+                  console.error('Ошибка загрузки кошелька:', e);
+                  walletValueEl.textContent = '—';
+              }
+          }
+
+          // ====== открытие модалки ======
+          function openModal(action) {
+              currentAction = action;
+              modalTitle.textContent = action === 'deposit' ? 'Внести средства' : 'Снять средства';
+              modalAmount.value = '';
+              modalError.hidden = true;
+              modalError.textContent = '';
+              modal.hidden = false;
+              modalAmount.focus();
+          }
+
+          function closeModal() {
+              modal.hidden = true;
+              currentAction = null;
+          }
+
+          // ====== отправка ======
+          async function submitModal() {
+              const amount = parseFloat(modalAmount.value);
+              if (!amount || amount <= 0) {
+                  showError('Введите положительную сумму');
+                  return;
+              }
+
+              const url = currentAction === 'deposit'
+                  ? '/api/v1/wallet/deposit'
+                  : '/api/v1/wallet/withdraw';
+
+              try {
+                  const res = await fetch(url, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ amount: amount })
+                  });
+
+                  if (!res.ok) {
+                      const text = await res.text();
+                      throw new Error(text || ('HTTP ' + res.status));
+                  }
+
+                  const data = await res.json();
+                  walletValueEl.textContent = formatMoney(data.totalCapital);
+                  closeModal();
+
+                  await loadWallet();
+              } catch (e) {
+                  showError(e.message);
+              }
+          }
+
+          function showError(msg) {
+              modalError.textContent = msg;
+              modalError.hidden = false;
+          }
+
+          // ====== обработчики ======
+          btnDeposit.addEventListener('click', () => openModal('deposit'));
+          btnWithdraw.addEventListener('click', () => openModal('withdraw'));
+          modalCancel.addEventListener('click', closeModal);
+          modalSubmit.addEventListener('click', submitModal);
+          modal.addEventListener('click', (e) => {
+              if (e.target === modal) closeModal(); // клик по фону
+          });
+          document.addEventListener('keydown', (e) => {
+              if (e.key === 'Escape' && !modal.hidden) closeModal();
+          });
+
+          // ====== старт ======
+          loadWallet();
+      });
+    </script>
+  </section>
+
+  <!-- ====== МОДАЛКА ДЛЯ ПОПОЛНЕНИЯ / СНЯТИЯ ====== -->
+  <div id="walletModal" class="modal-overlay" hidden>
+    <div class="modal">
+      <h3 id="modalTitle">Внести средства</h3>
+
+      <label>
+        Сумма
+        <input type="number" id="modalAmount" step="0.01" min="0.01" placeholder="0.00">
+      </label>
+
+      <div id="modalError" class="modal-error" hidden></div>
+
+      <div class="modal-actions">
+        <button type="button" id="modalCancel" class="btn btn-secondary">Отмена</button>
+        <button type="button" id="modalSubmit" class="btn btn-primary">Подтвердить</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== ВИДЖЕТ 2: ГРАФИК РОСТА ====== -->
+  <section class="card widget-growth">
+    <h2>Прогноз роста капитала</h2>
+    <canvas id="growthChart"></canvas>
+  </section>
+
+  <!-- ====== ВИДЖЕТ 3: ДОБАВЛЕНИЕ ОПЕРАЦИИ ====== -->
+  <section class="card widget-operation">
+    <h2>Добавить операцию</h2>
+
+    <form action="/operations" method="post">
+
+      <!-- Название бумаги -->
+      <label>
+        Название бумаги
+        <input type="text" name="securityName" list="securitiesList" required>
+        <datalist id="securitiesList">
+          <option value="ОФЗ 26238">ОФЗ 26238 (Облигация)</option>
+          <option value="ОФЗ 26240">ОФЗ 26240 (Облигация)</option>
+          <option value="Корп. облигация X">Корп. облигация X (Облигация)</option>
+        </datalist>
+      </label>
+
+      <!-- Тип бумаги -->
+      <label>
+        Тип бумаги
+        <select name="securityType" id="securityType" required>
+          <option value="BOND">Облигация</option>
+          <option value="STOCK">Акция</option>
+          <option value="ETF">ETF</option>
+        </select>
+      </label>
+
+      <!-- Тип операции -->
+      <label>
+        Тип операции
+        <select name="operationType" required>
+          <option value="BUY">Покупка</option>
+          <option value="SELL">Продажа</option>
+          <option value="COUPON">Купон</option>
+          <option value="REDEMPTION">Погашение</option>
+        </select>
+      </label>
+
+      <label>
+        Количество
+        <input type="number" step="any" name="quantity" required>
+      </label>
+
+      <label>
+        Сумма
+        <input type="number" step="any" name="amount" required>
+      </label>
+
+      <!-- ====== БЛОК ДЛЯ НОВОЙ ОБЛИГАЦИИ ====== -->
+      <fieldset id="bondDetails">
+        <legend>Информация о новой облигации</legend>
+
+        <label>
+          Номинал
+          <input type="number" step="any" name="nominal">
+        </label>
+
+        <label>
+          Размер купона
+          <input type="number" step="any" name="couponAmount">
+        </label>
+
+        <label>
+          Дата погашения
+          <input type="date" name="maturityDate">
+        </label>
+
+        <label>
+          Купонов в год
+          <input type="number" min="1" max="12" name="couponsPerYear">
+        </label>
+      </fieldset>
+
+      <button type="submit">Добавить</button>
+    </form>
+  </section>
+</main>
+
+<!-- ====== ДАННЫЕ ДЛЯ ГРАФИКА (заглушка) ====== -->
+<script>
+  const growthData = [
+      { date: "2026-10-01", value: 152340 },
+      { date: "2026-11-01", value: 154100 },
+      { date: "2026-12-01", value: 156200 },
+      { date: "2027-01-01", value: 158400 },
+      { date: "2027-02-01", value: 160900 },
+      { date: "2027-03-01", value: 163500 }
+  ];
+</script>
+<script src="/portfolio.js"></script>
+</body>
+</html>
