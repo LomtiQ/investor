@@ -21,26 +21,6 @@
       <span id="capitalValue">—</span> ₽
     </div>
 
-    <script>
-      document.addEventListener('DOMContentLoaded', async () => {
-          try {
-              const res = await fetch('/api/v1/wallet/get_value');
-              if (!res.ok) throw new Error('HTTP ' + res.status);
-              const data = await res.json();
-
-              const formatted = new Intl.NumberFormat('ru-RU', {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2
-              }).format(data.totalCapital).replace(',', '.');
-
-              document.getElementById('capitalValue').textContent = formatted;
-          } catch (e) {
-              console.error('Не удалось загрузить капитал:', e);
-              document.getElementById('capitalValue').textContent = '—';
-          }
-      });
-    </script>
-
     <table class="positions">
       <thead>
       <tr>
@@ -49,27 +29,13 @@
         <th>Сумма</th>
       </tr>
       </thead>
-      <tbody>
-      <tr>
-        <td>ОФЗ 26238</td>
-        <td>50</td>
-        <td>47 500.00</td>
-      </tr>
-      <tr>
-        <td>ОФЗ 26240</td>
-        <td>30</td>
-        <td>28 800.00</td>
-      </tr>
-      <tr>
-        <td>Корп. облигация X</td>
-        <td>100</td>
-        <td>76 040.00</td>
-      </tr>
+      <tbody id="bondsBody">
+      <!-- строки добавит JS -->
       </tbody>
     </table>
   </section>
 
-  <!-- ====== ВИДЖЕТ 1: КАПИТАЛ И ПОЗИЦИИ ====== -->
+  <!-- ====== ВИДЖЕТ 1: КОШЕЛЕК ====== -->
   <section class="card widget-wallet">
     <h2>Кошелёк</h2>
     <div class="wallet-total">
@@ -83,6 +49,79 @@
 
     <script>
       document.addEventListener('DOMContentLoaded', () => {
+
+          // ====== добавление операции ======
+          const operationForm = document.getElementById('operationForm');
+          const operationMessage = document.getElementById('operationMessage');
+          const operationSubmit = document.getElementById('operationSubmit');
+
+          if (operationForm) {
+              operationForm.addEventListener('submit', async (e) => {
+                  e.preventDefault();   // ← не даём браузеру отправить форму и перезагрузить страницу
+
+                  // Собираем все поля формы в объект
+                  const formData = new FormData(operationForm);
+                  const payload = {};
+                  formData.forEach((value, key) => {
+                      payload[key] = value;
+                  });
+
+                  // Простая нормализация: пустые строки → null, числа → number
+                  const numberFields = [
+                      'quantity', 'amount', 'nominal', 'couponAmount', 'couponsPerYear'
+                  ];
+                  numberFields.forEach(f => {
+                      if (payload[f] === '' || payload[f] === undefined) {
+                          payload[f] = null;
+                      } else {
+                          const n = Number(payload[f]);
+                          if (!Number.isNaN(n)) payload[f] = n;
+                      }
+                  });
+
+                  // Дизейблим кнопку, чистим прошлое сообщение
+                  operationSubmit.disabled = true;
+                  operationMessage.hidden = true;
+                  operationMessage.textContent = '';
+
+                  try {
+                      const res = await fetch('/api/v1/operation/new', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify(payload)
+                      });
+
+                      if (!res.ok) {
+                          const text = await res.text();
+                          throw new Error(text || ('HTTP ' + res.status));
+                      }
+
+                      // Очищаем поля, кроме типа бумаги/операции (их удобно оставить)
+                      operationForm.reset();
+                      updateBondBlock();  // если у тебя есть логика показа блока новой облигации
+
+                      showMessage('Операция добавлена', 'success');
+
+                      // Обновляем таблицу и кошелёк
+                      await refreshAll();
+                  } catch (err) {
+                      showMessage(err.message, 'error');
+                  } finally {
+                      operationSubmit.disabled = false;
+                  }
+                  loadWallet();
+                  loadBonds();
+                  loadCapital();
+              });
+          }
+
+          function showMessage(text, type) {
+              if (!operationMessage) return;
+              operationMessage.textContent = text;
+              operationMessage.classList.remove('success', 'error');
+              operationMessage.classList.add(type);
+              operationMessage.hidden = false;
+          }
 
           // ====== элементы ======
           const walletValueEl = document.getElementById('walletValue');
@@ -106,6 +145,63 @@
                 .replace(/\u00A0/g, ' ')
                 .replace(',', '.');
           }
+
+          // ====== загрузка списка облигаций ======
+          async function loadBonds() {
+              const tbody = document.getElementById('bondsBody');
+              if (!tbody) return;
+
+              try {
+                  const res = await fetch('/api/v1/bond/get_all');
+                  if (!res.ok) throw new Error('HTTP ' + res.status);
+                  const bonds = await res.json();
+
+                  if (!bonds || bonds.length === 0) {
+                      tbody.innerHTML = '<tr><td colspan="3" class="empty">Пока нет бумаг</td></tr>';
+                      return;
+                  }
+
+                  tbody.innerHTML = bonds.map(b => `
+                      <tr>
+                          <td>${escapeHtml(b.name)}</td>
+                          <td>${b.count}</td>
+                          <td>${formatMoney(b.cost)}</td>
+                      </tr>
+                  `).join('');
+              } catch (e) {
+                  console.error('Ошибка загрузки облигаций:', e);
+                  tbody.innerHTML = '<tr><td colspan="3" class="empty">Ошибка загрузки</td></tr>';
+              }
+          }
+
+          async function loadCapital() {
+              try {
+              const res = await fetch('/api/v1/capital/get_value');
+              if (!res.ok) throw new Error('HTTP ' + res.status);
+              const data = await res.json();
+
+              const formatted = new Intl.NumberFormat('ru-RU', {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2
+              }).format(data.totalCapital).replace(',', '.');
+
+              document.getElementById('capitalValue').textContent = formatted;
+              } catch (e) {
+                  console.error('Не удалось загрузить капитал:', e);
+                  document.getElementById('capitalValue').textContent = '—';
+              }
+          }
+
+          // Простая защита от XSS, если имена приходят из пользовательского ввода
+          function escapeHtml(s) {
+              return String(s)
+                  .replaceAll('&', '&amp;')
+                  .replaceAll('<', '&lt;')
+                  .replaceAll('>', '&gt;')
+                  .replaceAll('"', '&quot;')
+                  .replaceAll("'", '&#39;');
+          }
+
 
           // ====== загрузка кошелька ======
           async function loadWallet() {
@@ -189,6 +285,8 @@
 
           // ====== старт ======
           loadWallet();
+          loadBonds();
+          loadCapital();
       });
     </script>
   </section>
@@ -222,12 +320,11 @@
   <section class="card widget-operation">
     <h2>Добавить операцию</h2>
 
-    <form action="/operations" method="post">
-
+    <form id="operationForm">
       <!-- Название бумаги -->
       <label>
         Название бумаги
-        <input type="text" name="securityName" list="securitiesList" required>
+        <input type="text" name="name" list="securitiesList" required>
         <datalist id="securitiesList">
           <option value="ОФЗ 26238">ОФЗ 26238 (Облигация)</option>
           <option value="ОФЗ 26240">ОФЗ 26240 (Облигация)</option>
@@ -241,7 +338,6 @@
         <select name="securityType" id="securityType" required>
           <option value="BOND">Облигация</option>
           <option value="STOCK">Акция</option>
-          <option value="ETF">ETF</option>
         </select>
       </label>
 
@@ -258,40 +354,42 @@
 
       <label>
         Количество
-        <input type="number" step="any" name="quantity" required>
+        <input type="number" step="any" name="count" required>
       </label>
 
       <label>
         Сумма
-        <input type="number" step="any" name="amount" required>
+        <input type="number" step="any" name="cost" required>
       </label>
 
-      <!-- ====== БЛОК ДЛЯ НОВОЙ ОБЛИГАЦИИ ====== -->
       <fieldset id="bondDetails">
         <legend>Информация о новой облигации</legend>
 
         <label>
           Номинал
-          <input type="number" step="any" name="nominal">
+          <input type="number" step="any" name="nominal_value">
         </label>
 
         <label>
           Размер купона
-          <input type="number" step="any" name="couponAmount">
+          <input type="number" step="any" name="coupon">
         </label>
 
         <label>
           Дата погашения
-          <input type="date" name="maturityDate">
+          <input type="date" name="maturity_date">
         </label>
 
         <label>
-          Купонов в год
-          <input type="number" min="1" max="12" name="couponsPerYear">
+          Выплат к погашению
+          <input type="number" min="1" max="999" name="payout">
         </label>
       </fieldset>
 
-      <button type="submit">Добавить</button>
+      <!-- блок для ошибок/успеха -->
+      <div id="operationMessage" class="form-message" hidden></div>
+
+      <button type="submit" id="operationSubmit">Добавить</button>
     </form>
   </section>
 </main>

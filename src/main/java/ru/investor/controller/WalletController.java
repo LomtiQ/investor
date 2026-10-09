@@ -4,29 +4,22 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import ru.investor.dto.WalletOperationRequest;
 import ru.investor.entity.Wallet;
-import ru.investor.repository.WalletRepository;
 import ru.investor.service.WalletService;
 
-import java.math.BigDecimal;
-
-@RestController                    // ✅ это просто бин
+@RestController
 @RequestMapping("/api/v1/wallet")
 public class WalletController {
 
-    private final WalletRepository walletRepository;
     private final WalletService walletService;
 
-    public WalletController(WalletRepository walletRepository, WalletService walletService) {
-        this.walletRepository = walletRepository;
+    public WalletController(WalletService walletService) {
         this.walletService = walletService;
     }
 
     @GetMapping("/get_value")
     public Wallet get_value(){
         // Берем первый кошелек или создаем новый с нулем
-        return walletRepository.findAll().stream()
-                .findFirst()
-                .orElseGet(() -> walletRepository.save(new Wallet(BigDecimal.ZERO)));
+        return walletService.getWallet();
     }
 
     @PostMapping("/deposit")
