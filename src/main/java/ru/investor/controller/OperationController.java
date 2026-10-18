@@ -18,12 +18,14 @@ public class OperationController {
 
     private final BondRepository bondRepository;
 
-    @PostMapping("/new")
+    @PostMapping("/new_operation")
     public OperationDto new_operation(@RequestBody OperationDto bondDto){
         /// 1 - Определить тип бумпги и операцию
         /// 2 - если покупка облигации, то
         ///     - Проврить есть ли достаточное количество денег на кошельке + списание
         ///     - Существует ли такая бумага или она новая
+        /// 3 - если продажа, то
+        ///     -
         Bond bond = new Bond();
         switch (bondDto.getOperationType()){
             case "BUY" :
@@ -48,7 +50,7 @@ public class OperationController {
                 bond.setName(bondDto.getName());
                 bond.setMaturity_date(bondDto.getMaturity_date());
                 bond.setPayout(bondDto.getPayout());
-                operationService.sale(bond);
+                operationService.sale(bond.getName());
                 break;
             case "COUPON":
                 break;

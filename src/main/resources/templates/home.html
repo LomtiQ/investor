@@ -5,6 +5,7 @@
   <title>Портфель облигаций</title>
   <link rel="stylesheet" href="/style.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
 </head>
 <body>
 
@@ -21,6 +22,13 @@
       <span id="capitalValue">—</span> ₽
     </div>
 
+    <div class="wallet-actions">
+      <button type="button" id="btnDeposit2" class="btn btn-primary">Купить</button>
+      <button type="button" id="btnWithdraw2" class="btn btn-secondary">Продать</button>
+      <button type="button" id="btnWithdraw3" class="btn btn-secondary">Купон</button>
+      <button type="button" id="btnWithdraw4" class="btn btn-secondary">Погасить</button>
+    </div>
+
     <table class="positions">
       <thead>
       <tr>
@@ -35,6 +43,22 @@
     </table>
   </section>
 
+  <!-- Модальное окно для информации об облигации -->
+  <div class="modal-overlay" id="bondModal" hidden>
+    <div class="modal">
+      <!-- Добавлен onclick прямо в HTML для 100% надежности -->
+      <span class="modal-close" onclick="closeBondModal()">&times;</span>
+
+      <h3 id="bondModalTitle">Информация о бумаге</h3>
+
+      <div id="bondModalBody" style="display: flex; flex-direction: column; gap: 10px; font-size: 14px;">
+        <!-- Сюда JS будет вставлять данные -->
+      </div>
+
+      <!-- Блок с кнопкой полностью удален -->
+    </div>
+  </div>
+
   <!-- ====== ВИДЖЕТ 1: КОШЕЛЕК ====== -->
   <section class="card widget-wallet">
     <h2>Кошелёк</h2>
@@ -48,7 +72,226 @@
     </div>
 
     <script>
+      // ======================================================
+      // ГЛОБАЛЬНЫЕ УТИЛИТЫ (доступны везде)
+      // ======================================================
+
+      function formatMoney(value) {
+          return new Intl.NumberFormat('ru-RU', {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2
+          }).format(value)
+            .replace(/\u00A0/g, ' ')
+            .replace(',', '.');
+      }
+
+      function escapeHtml(s) {
+          return String(s)
+              .replaceAll('&', '&amp;')
+              .replaceAll('<', '&lt;')
+              .replaceAll('>', '&gt;')
+              .replaceAll('"', '&quot;')
+              .replaceAll("'", '&#39;');
+      }
+
+      function formatDateRu(iso) {
+          return new Date(iso).toLocaleDateString('ru-RU', {
+              day: '2-digit', month: 'short', year: 'numeric'
+          });
+      }
+
+      // ======================================================
+      // ГРАФИК ПРОГНОЗА
+      // ======================================================
+
+      let growthChartInstance = null;
+
+      async function loadForecast() {
+          try {
+              const res = await fetch('/api/v1/capital/forecast');
+              if (!res.ok) throw new Error('HTTP ' + res.status);
+              const data = await res.json();
+              renderGrowthChart(data);
+          } catch (e) {
+              console.error('Ошибка загрузки прогноза:', e);
+          }
+      }
+
+<!--      function renderGrowthChart(data) {-->
+<!--          const canvas = document.getElementById('growthChart');-->
+<!--          if (!canvas) return;-->
+
+<!--          // Формат {x, y} — так Chart.js с time scale работает быстро-->
+<!--          const chartData = data.points.map(p => ({-->
+<!--              x: p.date,-->
+<!--              y: p.value,-->
+<!--              event: p.event-->
+<!--          }));-->
+
+<!--          // Уничтожаем старый инстанс, чтобы не плодить графики-->
+<!--          if (growthChartInstance) {-->
+<!--              growthChartInstance.destroy();-->
+<!--              growthChartInstance = null;-->
+<!--          }-->
+
+<!--          const ctx = canvas.getContext('2d');-->
+<!--          const gradient = ctx.createLinearGradient(0, 0, 0, canvas.clientHeight || 320);-->
+<!--          gradient.addColorStop(0, 'rgba(43, 138, 62, 0.25)');-->
+<!--          gradient.addColorStop(1, 'rgba(43, 138, 62, 0)');-->
+
+<!--          growthChartInstance = new Chart(ctx, {-->
+<!--              type: 'line',-->
+<!--              data: {-->
+<!--                  datasets: [{-->
+<!--                      label: 'Капитал, ₽',-->
+<!--                      data: chartData,-->
+<!--                      borderColor: '#2b8a3e',-->
+<!--                      backgroundColor: gradient,-->
+<!--                      borderWidth: 2,-->
+<!--                      fill: true,-->
+<!--                      tension: 0.1,-->
+<!--                      pointRadius: 0,          // 3000+ точек — точки скрываем-->
+<!--                      pointHoverRadius: 6,     // появляются при наведении-->
+<!--                      pointBackgroundColor: '#ff922b'-->
+<!--                  }]-->
+<!--              },-->
+<!--              options: {-->
+<!--                  responsive: true,-->
+<!--                  maintainAspectRatio: false,-->
+<!--                  animation: false,            // отключаем анимацию для скорости-->
+<!--                  parsing: false,              // данные уже в формате {x, y}-->
+<!--                  interaction: {-->
+<!--                      mode: 'nearest',-->
+<!--                      axis: 'x',-->
+<!--                      intersect: false-->
+<!--                  },-->
+<!--                  plugins: {-->
+<!--                      legend: { display: false },-->
+<!--                      tooltip: {-->
+<!--                          callbacks: {-->
+<!--                              title: (ctx) => formatDateRu(ctx[0].raw.x),-->
+<!--                              label: (ctx) => {-->
+<!--                                  const p = ctx.raw;-->
+<!--                                  const base = ' ' + formatMoney(p.y);-->
+<!--                                  return p.event ? `${base} — ${p.event}` : base;-->
+<!--                              }-->
+<!--                          }-->
+<!--                      }-->
+<!--                  },-->
+<!--                  scales: {-->
+<!--                      x: {-->
+<!--                          type: 'time',-->
+<!--                          time: {-->
+<!--                              unit: 'year',-->
+<!--                              displayFormats: { year: 'yyyy' }-->
+<!--                          },-->
+<!--                          grid: { display: false }-->
+<!--                      },-->
+<!--                      y: {-->
+<!--                          ticks: {-->
+<!--                              callback: (val) => formatMoney(val)-->
+<!--                          }-->
+<!--                      }-->
+<!--                  }-->
+<!--              }-->
+<!--          });-->
+<!--      }-->
+
+      function renderGrowthChart(data) {
+    const canvas = document.getElementById('growthChart');
+    if (!canvas) return;
+
+    // Формат {x, y} — так Chart.js с time scale работает быстро
+    const chartData = data.points.map(p => ({
+        x: p.date,
+        y: p.value,
+        event: p.event
+    }));
+
+    // Уничтожаем старый инстанс, чтобы не плодить графики
+    if (growthChartInstance) {
+        growthChartInstance.destroy();
+        growthChartInstance = null;
+    }
+
+    const ctx = canvas.getContext('2d');
+    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.clientHeight || 320);
+    gradient.addColorStop(0, 'rgba(43, 138, 62, 0.25)');
+    gradient.addColorStop(1, 'rgba(43, 138, 62, 0)');
+
+    growthChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            datasets: [{
+                label: 'Капитал, ₽',
+                data: chartData,
+                borderColor: '#2b8a3e',
+                backgroundColor: gradient,
+                borderWidth: 3, // Сделал линию чуть толще для наглядности
+                fill: true,
+                tension: 0.1, // Легкое сглаживание
+                pointRadius: 4, // Показываем точки, так как их всего 14
+                pointBackgroundColor: '#2b8a3e',
+                pointHoverRadius: 7
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: false,
+            // Указываем Chart.js, где искать данные в объекте
+            parsing: {
+                xAxisKey: 'x',
+                yAxisKey: 'y'
+            },
+            interaction: {
+                mode: 'index',
+                intersect: false
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        title: (ctx) => formatDateRu(ctx[0].raw.x),
+                        label: (ctx) => {
+                            const p = ctx.raw;
+                            const base = ' ' + formatMoney(p.y);
+                            return p.event ? `${base} — ${p.event}` : base;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    type: 'time',
+                    time: {
+                        unit: 'month', // Так как данные у вас помесячные, ставим месяц
+                        displayFormats: {
+                            month: 'LLL yyyy' // Формат: Ноябрь 2026
+                        },
+                        tooltipFormat: 'dd.MM.yyyy'
+                    },
+                    grid: { display: false }
+                },
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: (val) => formatMoney(val)
+                    }
+                }
+            }
+        }
+    });
+}
+
+      // ======================================================
+      // UI + ЗАГРУЗКА ДАННЫХ
+      // ======================================================
+
       document.addEventListener('DOMContentLoaded', () => {
+
+          // Запускаем график
+          loadForecast();
 
           // ====== добавление операции ======
           const operationForm = document.getElementById('operationForm');
@@ -57,16 +300,14 @@
 
           if (operationForm) {
               operationForm.addEventListener('submit', async (e) => {
-                  e.preventDefault();   // ← не даём браузеру отправить форму и перезагрузить страницу
+                  e.preventDefault();
 
-                  // Собираем все поля формы в объект
                   const formData = new FormData(operationForm);
                   const payload = {};
                   formData.forEach((value, key) => {
                       payload[key] = value;
                   });
 
-                  // Простая нормализация: пустые строки → null, числа → number
                   const numberFields = [
                       'quantity', 'amount', 'nominal', 'couponAmount', 'couponsPerYear'
                   ];
@@ -79,13 +320,12 @@
                       }
                   });
 
-                  // Дизейблим кнопку, чистим прошлое сообщение
                   operationSubmit.disabled = true;
                   operationMessage.hidden = true;
                   operationMessage.textContent = '';
 
                   try {
-                      const res = await fetch('/api/v1/operation/new', {
+                      const res = await fetch('/api/v1/operation/new_operation', {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify(payload)
@@ -96,22 +336,22 @@
                           throw new Error(text || ('HTTP ' + res.status));
                       }
 
-                      // Очищаем поля, кроме типа бумаги/операции (их удобно оставить)
                       operationForm.reset();
-                      updateBondBlock();  // если у тебя есть логика показа блока новой облигации
+                      if (typeof updateBondBlock === 'function') updateBondBlock();
 
                       showMessage('Операция добавлена', 'success');
 
-                      // Обновляем таблицу и кошелёк
                       await refreshAll();
                   } catch (err) {
-                      showMessage(err.message, 'error');
+
                   } finally {
                       operationSubmit.disabled = false;
                   }
+
                   loadWallet();
                   loadBonds();
                   loadCapital();
+                  loadForecast();
               });
           }
 
@@ -123,7 +363,7 @@
               operationMessage.hidden = false;
           }
 
-          // ====== элементы ======
+          // ====== элементы кошелька ======
           const walletValueEl = document.getElementById('walletValue');
           const btnDeposit    = document.getElementById('btnDeposit');
           const btnWithdraw   = document.getElementById('btnWithdraw');
@@ -134,19 +374,12 @@
           const modalCancel   = document.getElementById('modalCancel');
           const modalSubmit   = document.getElementById('modalSubmit');
 
-          let currentAction = null; // 'deposit' | 'withdraw'
+          let currentAction = null;
 
-          // ====== форматирование ======
-          function formatMoney(value) {
-              return new Intl.NumberFormat('ru-RU', {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2
-              }).format(value)
-                .replace(/\u00A0/g, ' ')
-                .replace(',', '.');
-          }
+          // ====== облигации ======
+          const bondsCache = new Map();
+          let bondKeyCounter = 0;
 
-          // ====== загрузка списка облигаций ======
           async function loadBonds() {
               const tbody = document.getElementById('bondsBody');
               if (!tbody) return;
@@ -161,50 +394,109 @@
                       return;
                   }
 
-                  tbody.innerHTML = bonds.map(b => `
-                      <tr>
-                          <td>${escapeHtml(b.name)}</td>
-                          <td>${b.count}</td>
-                          <td>${formatMoney(b.cost)}</td>
-                      </tr>
-                  `).join('');
+                  tbody.innerHTML = bonds.map(b => {
+                      const key = 'b' + (bondKeyCounter++);
+                      bondsCache.set(key, b);
+                      return `
+                          <tr>
+                              <td>
+                                  <span class="bond-name-link" data-bond-key="${key}">
+                                      ${escapeHtml(b.name)}
+                                  </span>
+                              </td>
+                              <td>${b.count}</td>
+                              <td>${formatMoney(b.cost)}</td>
+                          </tr>
+                      `;
+                  }).join('');
+
+                  bindBondRowClicks(tbody);
               } catch (e) {
                   console.error('Ошибка загрузки облигаций:', e);
                   tbody.innerHTML = '<tr><td colspan="3" class="empty">Ошибка загрузки</td></tr>';
               }
           }
 
+          function bindBondRowClicks(tbody) {
+              tbody.querySelectorAll('.bond-name-link').forEach(el => {
+                  el.addEventListener('click', () => {
+                      const key = el.dataset.bondKey;
+                      const bond = bondsCache.get(key);
+                      if (bond) openBondModal(bond);
+                  });
+              });
+          }
+
+          function openBondModal(bond) {
+              const bondModal = document.getElementById('bondModal');
+              const title = document.getElementById('bondModalTitle');
+              const body = document.getElementById('bondModalBody');
+
+              title.textContent = bond.name || 'Без названия';
+
+              const fields = [
+                  { label: 'Номинал', value: bond.nominal_value },
+                  { label: 'Дата погашения', value: bond.maturity_date },
+                  { label: 'Купон', value: bond.coupon },
+                  { label: 'Количество', value: bond.count },
+                  { label: 'Стоимость', value: formatMoney(bond.cost) },
+                  { label: 'Выплата', value: bond.payout }
+              ];
+
+              body.innerHTML = fields
+                  .filter(f => f.value !== undefined && f.value !== null && f.value !== '')
+                  .map(f => `
+                      <div class="bond-info-row">
+                          <span class="bond-info-label">${escapeHtml(f.label)}</span>
+                          <span class="bond-info-value">${escapeHtml(String(f.value))}</span>
+                      </div>
+                  `).join('');
+
+              bondModal.hidden = false;
+          }
+
+          function closeBondModal() {
+              const bondModal = document.getElementById('bondModal');
+              if (bondModal) bondModal.hidden = true;
+          }
+
+          window.closeBondModal = closeBondModal;
+
+          // Закрытие bond-модалки
+          const bondModalEl = document.getElementById('bondModal');
+          if (bondModalEl) {
+              bondModalEl.addEventListener('click', (e) => {
+                  if (e.target === bondModalEl) closeBondModal();
+              });
+              document.addEventListener('keydown', (e) => {
+                  if (e.key === 'Escape' && !bondModalEl.hidden) closeBondModal();
+              });
+          }
+
+          // ====== капитал ======
           async function loadCapital() {
               try {
-              const res = await fetch('/api/v1/capital/get_value');
-              if (!res.ok) throw new Error('HTTP ' + res.status);
-              const data = await res.json();
+                  const res = await fetch('/api/v1/capital/get_value');
+                  if (!res.ok) throw new Error('HTTP ' + res.status);
+                  const data = await res.json();
 
-              const formatted = new Intl.NumberFormat('ru-RU', {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2
-              }).format(data.totalCapital).replace(',', '.');
+                  const formatted = new Intl.NumberFormat('ru-RU', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2
+                  }).format(data.totalCapital).replace(',', '.');
 
-              document.getElementById('capitalValue').textContent = formatted;
+                  const el = document.getElementById('capitalValue');
+                  if (el) el.textContent = formatted;
               } catch (e) {
                   console.error('Не удалось загрузить капитал:', e);
-                  document.getElementById('capitalValue').textContent = '—';
+                  const el = document.getElementById('capitalValue');
+                  if (el) el.textContent = '—';
               }
           }
 
-          // Простая защита от XSS, если имена приходят из пользовательского ввода
-          function escapeHtml(s) {
-              return String(s)
-                  .replaceAll('&', '&amp;')
-                  .replaceAll('<', '&lt;')
-                  .replaceAll('>', '&gt;')
-                  .replaceAll('"', '&quot;')
-                  .replaceAll("'", '&#39;');
-          }
-
-
-          // ====== загрузка кошелька ======
+          // ====== кошелёк ======
           async function loadWallet() {
+              if (!walletValueEl) return;
               try {
                   const res = await fetch('/api/v1/wallet/get_value');
                   if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -216,8 +508,8 @@
               }
           }
 
-          // ====== открытие модалки ======
-          function openModal(action) {
+          // ====== модалка кошелька ======
+          function openWalletModal(action) {
               currentAction = action;
               modalTitle.textContent = action === 'deposit' ? 'Внести средства' : 'Снять средства';
               modalAmount.value = '';
@@ -227,13 +519,12 @@
               modalAmount.focus();
           }
 
-          function closeModal() {
+          function closeWalletModal() {
               modal.hidden = true;
               currentAction = null;
           }
 
-          // ====== отправка ======
-          async function submitModal() {
+          async function submitWalletModal() {
               const amount = parseFloat(modalAmount.value);
               if (!amount || amount <= 0) {
                   showError('Введите положительную сумму');
@@ -258,7 +549,7 @@
 
                   const data = await res.json();
                   walletValueEl.textContent = formatMoney(data.totalCapital);
-                  closeModal();
+                  closeWalletModal();
 
                   await loadWallet();
               } catch (e) {
@@ -271,17 +562,19 @@
               modalError.hidden = false;
           }
 
-          // ====== обработчики ======
-          btnDeposit.addEventListener('click', () => openModal('deposit'));
-          btnWithdraw.addEventListener('click', () => openModal('withdraw'));
-          modalCancel.addEventListener('click', closeModal);
-          modalSubmit.addEventListener('click', submitModal);
-          modal.addEventListener('click', (e) => {
-              if (e.target === modal) closeModal(); // клик по фону
-          });
-          document.addEventListener('keydown', (e) => {
-              if (e.key === 'Escape' && !modal.hidden) closeModal();
-          });
+          // Обработчики кошелька
+          if (btnDeposit)  btnDeposit.addEventListener('click', () => openWalletModal('deposit'));
+          if (btnWithdraw) btnWithdraw.addEventListener('click', () => openWalletModal('withdraw'));
+          if (modalCancel) modalCancel.addEventListener('click', closeWalletModal);
+          if (modalSubmit) modalSubmit.addEventListener('click', submitWalletModal);
+          if (modal) {
+              modal.addEventListener('click', (e) => {
+                  if (e.target === modal) closeWalletModal();
+              });
+              document.addEventListener('keydown', (e) => {
+                  if (e.key === 'Escape' && !modal.hidden) closeWalletModal();
+              });
+          }
 
           // ====== старт ======
           loadWallet();
@@ -313,7 +606,10 @@
   <!-- ====== ВИДЖЕТ 2: ГРАФИК РОСТА ====== -->
   <section class="card widget-growth">
     <h2>Прогноз роста капитала</h2>
-    <canvas id="growthChart"></canvas>
+    <!-- Обертка для контроля высоты -->
+    <div class="chart-container">
+      <canvas id="growthChart"></canvas>
+    </div>
   </section>
 
   <!-- ====== ВИДЖЕТ 3: ДОБАВЛЕНИЕ ОПЕРАЦИИ ====== -->
@@ -394,16 +690,9 @@
   </section>
 </main>
 
-<!-- ====== ДАННЫЕ ДЛЯ ГРАФИКА (заглушка) ====== -->
+<!-- ====== ДАННЫЕ ДЛЯ ГРАФИКА ====== -->
 <script>
-  const growthData = [
-      { date: "2026-10-01", value: 152340 },
-      { date: "2026-11-01", value: 154100 },
-      { date: "2026-12-01", value: 156200 },
-      { date: "2027-01-01", value: 158400 },
-      { date: "2027-02-01", value: 160900 },
-      { date: "2027-03-01", value: 163500 }
-  ];
+
 </script>
 <script src="/portfolio.js"></script>
 </body>

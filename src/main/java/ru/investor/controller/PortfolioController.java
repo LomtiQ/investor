@@ -16,4 +16,9 @@ public class PortfolioController {
         return "home";
     }
 
+    @GetMapping("/bond")
+    public String bond(){
+        return "bond";
+    }
+
 }
