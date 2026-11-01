@@ -245,3 +245,166 @@ button:hover { background: #237032; }
     height: 100% !important;
     display: block;
 }
+
+
+/* =========================================
+   ИСПРАВЛЕНИЕ ФОРМЫ ВНУТРИ МОДАЛЬНОГО ОКНА
+   ========================================= */
+
+/* Расширяем модалку, чтобы двум колонкам было не тесно */
+#paydModal .modal {
+    width: 600px;
+    max-width: 95vw;
+}
+
+/* Сбрасываем глобальный grid для формы внутри модалки
+   (чтобы поля шли друг под другом, если это нужно) */
+#operationForm {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* Но блок с реквизитами облигации оставляем сеткой в 2 колонки */
+#operationForm fieldset {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px 16px;
+    margin: 0;
+}
+
+/* На всякий случай сбрасываем отступы у legend */
+#operationForm fieldset legend {
+    padding: 0 6px;
+    margin-left: -6px;
+}
+
+/* Кнопка "Подтвердить" должна быть на всю ширину */
+#operationForm button[type="submit"] {
+    width: 100%;
+    margin-top: 8px;
+}
+
+/* Поля в модалке: чтобы не сжимались и не растягивались некорректно */
+#paydModal input,
+#paydModal select {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* На узких экранах филдсет становится в одну колонку */
+@media (max-width: 500px) {
+    #operationForm fieldset {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* --- Новый виджет Капитала --- */
+.widget-total-capital {
+  grid-column: 1 / -1; /* Растягиваем на всю ширину сетки, если нужно */
+  padding: 24px;
+}
+
+.total-capital-header {
+  text-align: center;
+  padding-bottom: 24px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid #e0e0e0; /* Разделитель между общей суммой и деталями */
+}
+
+.total-capital-header h2 {
+  font-size: 14px;
+  text-transform: uppercase;
+  color: #666;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.capital-total {
+  font-size: 36px;
+  font-weight: bold;
+  color: #222;
+}
+
+/* Сетка для разделения на Кошелек и Активы */
+.capital-breakdown {
+  display: grid;
+  grid-template-columns: 1fr 2fr; /* Кошелек уже, Активы шире. Можно 1fr 1fr для равных */
+  gap: 32px;
+}
+
+/* Адаптивность: на мобильных колонки станут друг под другом */
+@media (max-width: 768px) {
+  .capital-breakdown {
+    grid-template-columns: 1fr;
+  }
+}
+
+.breakdown-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.section-header {
+  margin-bottom: 12px;
+}
+
+.section-header h3 {
+  font-size: 16px;
+  color: #444;
+  margin-bottom: 4px;
+}
+
+.wallet-total {
+  font-size: 24px;
+  font-weight: 600;
+  color: #222;
+}
+
+/* Кнопки внутри секций */
+.wallet-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap; /* Чтобы кнопки переносились, если не влезают */
+}
+
+/* Таблица активов */
+.positions {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+}
+
+.positions th, .positions td {
+  text-align: left;
+  padding: 8px 0;
+  border-bottom: 1px solid #eee;
+}
+
+.positions th {
+  font-size: 12px;
+  color: #888;
+  font-weight: normal;
+}
+
+.positions td {
+  font-size: 14px;
+  color: #222;
+}
+
+/* Сетка для разделения на Активы и Кошелек */
+.capital-breakdown {
+  display: grid;
+  /* Активы занимают 2 части пространства, кошелек - 1 часть */
+  grid-template-columns: 2fr 1fr;
+  gap: 48px; /* Немного увеличил отступ для красоты */
+}
+
+/* Адаптивность: на мобильных колонки станут друг под другом */
+@media (max-width: 768px) {
+  .capital-breakdown {
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
+}

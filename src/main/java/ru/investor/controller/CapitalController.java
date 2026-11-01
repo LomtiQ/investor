@@ -31,9 +31,4 @@ public class CapitalController {
     public ForecastResponseDto forecast(){
         return forecastService.buildForecast();
     }
-
-//    @GetMapping("/forecast")
-//    public String forecast(){
-//        return "";
-//    }
 }

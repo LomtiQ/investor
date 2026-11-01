@@ -2,11 +2,13 @@ package ru.investor.service;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.RequestParam;
 import ru.investor.entity.Bond;
 import ru.investor.repository.BondRepository;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class BondService {
@@ -29,5 +31,17 @@ public class BondService {
     @Transactional(readOnly = true)
     public Bond setBonds(Bond bond) {
         return bondRepository.save(bond);
+    }
+
+    public List<String> getAllBondNames() {
+        return bondRepository.findAll().stream()
+                .map(Bond::getName)
+                .distinct()
+                .collect(Collectors.toList());
+    }
+
+    public Bond getBondInfo(String name) {
+        return bondRepository.findByName(name)
+                .orElseThrow(() -> new RuntimeException("Облигация не найдена"));
     }
 }

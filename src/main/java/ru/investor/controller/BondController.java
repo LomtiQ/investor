@@ -3,6 +3,7 @@ package ru.investor.controller;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import ru.investor.entity.Bond;
 import ru.investor.service.BondService;
@@ -21,6 +22,18 @@ public class BondController {
     @GetMapping("/get_all")
     public List<Bond> get_all(){
         return bondService.getBonds();
+    }
+
+    // 1. Получить список названий всех облигаций
+    @GetMapping("/names")
+    public List<String> getAllBondNames() {
+        return bondService.getAllBondNames();
+    }
+
+    // 2. Получить данные по конкретной облигации (для купона)
+    @GetMapping("/info")
+    public Bond getBondInfo(@RequestParam String name) {
+        return bondService.getBondInfo(name);
     }
 
 }

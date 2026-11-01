@@ -3,10 +3,14 @@ package ru.investor.controller;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 import ru.investor.dto.OperationDto;
+import ru.investor.dto.OperationStatusDto;
 import ru.investor.entity.Bond;
 import ru.investor.repository.BondRepository;
 import ru.investor.service.BondService;
 import ru.investor.service.OperationService;
+import ru.investor.service.WalletService;
+
+import java.math.BigDecimal;
 
 @RestController
 @RequestMapping("/api/v1/operation")
@@ -15,52 +19,13 @@ public class OperationController {
 
     private final BondService bondService;
     private final OperationService operationService;
+    private final WalletService wallet;
 
     private final BondRepository bondRepository;
 
     @PostMapping("/new_operation")
-    public OperationDto new_operation(@RequestBody OperationDto bondDto){
-        /// 1 - Определить тип бумпги и операцию
-        /// 2 - если покупка облигации, то
-        ///     - Проврить есть ли достаточное количество денег на кошельке + списание
-        ///     - Существует ли такая бумага или она новая
-        /// 3 - если продажа, то
-        ///     -
-        Bond bond = new Bond();
-        switch (bondDto.getOperationType()){
-            case "BUY" :
-
-                bond.setName(bondDto.getName());
-                bond.setCount(bondDto.getCount());
-                bond.setCost(bondDto.getCost());
-                bond.setNominal_value(bondDto.getNominal_value());
-                bond.setCoupon(bondDto.getCoupon());
-                bond.setName(bondDto.getName());
-                bond.setMaturity_date(bondDto.getMaturity_date());
-                bond.setPayout(bondDto.getPayout());
-                operationService.purchase(bond);
-                break;
-            case "SELL":
-
-                bond.setName(bondDto.getName());
-                bond.setCount(bondDto.getCount());
-                bond.setCost(bondDto.getCost());
-                bond.setNominal_value(bondDto.getNominal_value());
-                bond.setCoupon(bondDto.getCoupon());
-                bond.setName(bondDto.getName());
-                bond.setMaturity_date(bondDto.getMaturity_date());
-                bond.setPayout(bondDto.getPayout());
-                operationService.sale(bond.getName());
-                break;
-            case "COUPON":
-                break;
-            case "REDEMPTION":
-                break;
-            default:
-                break;
-        }
-
-        return bondDto;
+    public OperationStatusDto new_operation(@RequestBody OperationDto operationDto){
+        return operationService.new_operation(operationDto);
     }
 
 }

@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="UTF-8">
+  <title>Портфель облигаций</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/chart.js"></script>
+  <script src="/wallet.js"></script>
+  <script src="/portfolio.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+  <script src="/home.js"></script>
+</head>
+<body>
+
+<header>
+  <h1>Мой портфель</h1>
+</header>
+
+<main class="grid">
+
+  <!-- ====== ЕДИНЫЙ ВИДЖЕТ: КАПИТАЛ ====== -->
+  <section class="card widget-total-capital">
+
+    <!-- Верхняя часть: Общий капитал -->
+    <div class="total-capital-header">
+      <h2>Общий капитал</h2>
+      <div class="capital-total">
+        <span id="capitalValue">—</span> ₽
+      </div>
+    </div>
+
+    <!-- Нижняя часть: Разделение на Кошелек и Активы -->
+    <div class="capital-breakdown">
+
+      <!-- Левая колонка: Активы (Облигации) -->
+      <div class="breakdown-section assets-section">
+        <div class="section-header">
+          <h3>Активы</h3>
+          <!-- Сюда можно добавить суммарную стоимость активов, если нужно -->
+          <div class="assets-total">
+             <span id="assetsValue">—</span> ₽
+          </div>
+        </div>
+
+        <div class="wallet-actions">
+          <button type="button" id="btnBuy" class="btn btn-primary">Купить</button>
+          <button type="button" id="btnSell" class="btn btn-secondary">Продать</button>
+          <button type="button" id="btnCoupon" class="btn btn-secondary">Купон</button>
+          <button type="button" id="btnRedeem" class="btn btn-secondary">Погасить</button>
+        </div>
+
+        <table class="positions">
+          <thead>
+          <tr>
+            <th>Бумага</th>
+            <th>Кол-во</th>
+            <th>Сумма</th>
+          </tr>
+          </thead>
+          <tbody id="bondsBody">
+          <!-- строки добавит JS -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Правая колонка: Кошелек -->
+      <div class="breakdown-section wallet-section">
+        <div class="section-header">
+          <h3>Кошелёк</h3>
+          <div class="wallet-total">
+            <span id="walletValue">—</span> ₽
+          </div>
+        </div>
+
+        <div class="wallet-actions">
+          <button type="button" id="btnDeposit" class="btn btn-primary">Внести</button>
+          <button type="button" id="btnWithdraw" class="btn btn-secondary">Снять</button>
+        </div>
+      </div>
+
+
+
+    </div>
+  </section>
+
+  <!-- Модальное окно для информации об облигации -->
+  <div class="modal-overlay" id="bondModal" hidden>
+    <div class="modal">
+      <!-- Добавлен onclick прямо в HTML для 100% надежности -->
+      <span class="modal-close" onclick="closeBondModal()">&times;</span>
+
+      <h3 id="bondModalTitle">Информация о бумаге</h3>
+
+      <div id="bondModalBody" style="display: flex; flex-direction: column; gap: 10px; font-size: 14px;">
+
+      </div>
+    </div>
+  </div>
+
+
+  <!-- Модальное окно для операций -->
+  <div class="modal-overlay" id="paydModal" hidden>
+    <div class="modal">
+      <span class="modal-close" onclick="closeOperationModal()">&times;</span>
+
+      <h3 id="paydModalTitle">Операция</h3>
+
+      <div id="paydModalBody" style="display: flex; flex-direction: column; gap: 10px; font-size: 14px;">
+        <form id="operationForm">
+          <!-- Скрытое поле для типа операции -->
+          <input type="hidden" name="operationType" id="operationType">
+
+          <!-- Блок выбора существующей бумаги (для Купона, Продажи, Погашения) -->
+          <div id="existingBondSelectBlock" style="display: none;">
+            <label>
+              Название бумаги
+              <select id="existingBondSelect" name="existingBondName">
+                <option value="">-- Выберите бумагу --</option>
+              </select>
+            </label>
+          </div>
+
+          <!-- Блок ввода названия (для Покупки новой бумаги) -->
+          <div id="newBondInputBlock" style="display: block;">
+            <label>
+              Название бумаги
+              <input type="text" name="name" id="newBondName">
+            </label>
+          </div>
+
+          <!-- Тип бумаги -->
+          <div id="securityTypeBlock">
+            <label>
+              Тип бумаги
+              <select name="securityType" id="securityType" required>
+                <option value="BOND">Облигация</option>
+                <option value="STOCK">Акция</option>
+              </select>
+            </label>
+          </div>
+
+          <label id="countLabel">
+            Количество
+            <input type="number" step="any" name="count" id="countInput" required>
+          </label>
+
+          <label id="costLabel">
+            Сумма
+            <input type="number" step="any" name="cost" id="costInput" required>
+          </label>
+
+          <!-- Блок деталей облигации (только для покупки) -->
+          <fieldset id="bondDetails">
+            <legend>Информация о новой облигации</legend>
+            <label>Номинал <input type="number" step="any" name="nominal_value"></label>
+            <label>Размер купона <input type="number" step="any" name="coupon"></label>
+            <label>Дата погашения <input type="date" name="maturity_date"></label>
+            <label>Выплат к погашению <input type="number" min="1" max="999" name="payout"></label>
+          </fieldset>
+
+          <!-- Блок информации о купоне (только для купона) -->
+          <fieldset id="couponDetails" style="display: none; background: #f9f9f9; padding: 12px; border-radius: 8px; border: 1px solid #eaeaea;">
+            <legend>Расчет купона</legend>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <div>Стоимость купона за 1 шт: <strong id="couponPerUnit">0.00</strong> ₽</div>
+              <div>Количество бумаг: <strong id="couponQuantity">0</strong></div>
+              <div style="font-size: 16px; margin-top: 8px; color: #2e7d32;">Итого к зачислению: <strong id="couponTotal">0.00</strong> ₽</div>
+            </div>
+          </fieldset>
+
+          <div id="operationMessage" class="form-message" hidden></div>
+          <button type="submit" id="operationSubmit" class="btn btn-primary">Подтвердить</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== МОДАЛКА ДЛЯ ПОПОЛНЕНИЯ / СНЯТИЯ ====== -->
+  <div id="walletModal" class="modal-overlay" hidden>
+    <div class="modal">
+      <h3 id="modalTitle">Внести средства</h3>
+
+      <label>
+        Сумма
+        <input type="number" id="modalAmount" step="0.01" min="0.01" placeholder="0.00">
+      </label>
+
+      <div id="modalError" class="modal-error" hidden></div>
+
+      <div class="modal-actions">
+        <button type="button" id="modalCancel" class="btn btn-secondary">Отмена</button>
+        <button type="button" id="modalSubmit" class="btn btn-primary">Подтвердить</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== ВИДЖЕТ 2: ГРАФИК РОСТА ====== -->
+  <section class="card widget-growth">
+    <h2>Прогноз роста капитала</h2>
+    <!-- Обертка для контроля высоты -->
+    <div class="chart-container">
+      <canvas id="growthChart"></canvas>
+    </div>
+  </section>
+</main>
+
+<!--<script src="/portfolio.js"></script>-->
+</body>
+</html>

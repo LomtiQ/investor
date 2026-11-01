@@ -13,5 +13,4 @@ public interface BondRepository extends JpaRepository<Bond, Long> {
     BigDecimal sumCost();
 
     Optional<Bond> findByName(String name);
-
 }
